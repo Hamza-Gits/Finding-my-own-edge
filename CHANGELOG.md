@@ -5,6 +5,25 @@ verifiable change — no aspirational claims.
 
 ## 2026-06-29
 
+### M3 first discovery run — 6 candidates, honest NO-GO (gates working)
+- Feature/candidate layer: `edge/data/bars.py` (daily-RTH + 5-min-RTH aggregation),
+  `edge/features/seasonality.py` (opening-range breakout, overnight-gap follow/fade,
+  day-of-week). `scripts/03_discovery.py` runs each candidate through the FULL gate
+  stack with a shared honest trial registry; emits `reports/03_discovery_report.md`
+  + equity plots.
+- Candidates tested on real MNQ (2019→2026): daily momentum, daily mean-reversion,
+  overnight-gap follow, overnight-gap fade, **5-min opening-range breakout (both &
+  long-only)** — the latter being the user's headline "5 Min ORB".
+- **Result: every candidate is NO-GO.** Attractive-looking annualized Sharpes
+  (0.4–0.9) and PFs up to 1.50 all collapse under the in-sample MCPT (p ≈ 0.23–0.74,
+  none below the 0.01 gate). The standout lesson: ORB-long shows ~0.87 annualized
+  Sharpe but p≈0.28 — that "edge" is just 2019–2026 bull-market drift captured by a
+  long-biased rule (beta, not predictive structure), and the permutation test sees
+  through it exactly as Masters intended. `overnight_gap_follow` dies on cost
+  fragility (net Sharpe ≤ 0 after 2-tick slippage).
+- This is the prime directive in action: the pipeline HONESTLY kills plausible-looking
+  fakes. No threshold was loosened. 5 new feature tests (39 total passing).
+
 ### Real data ingested (M1 data spine complete on futures)
 - Staged **48 raw NinjaTrader contract exports** (235 MB) into `data/raw/` (gitignored;
   provenance in `data/MANIFEST.csv`): MNQ ×30 (2019→2026), MES ×17, ES ×1.
