@@ -1,0 +1,17 @@
+# Core scientific stack
+numpy>=1.26,<2.3
+pandas==2.2.3              # pinned: pandas 3.0.x segfaults on tz date_range (Win)
+scipy>=1.11
+# Stats / econometrics
+statsmodels>=0.14          # Engle-Granger, Johansen (via vector_ar), ADF, OLS
+arch>=6.3                  # GARCH / EGARCH / HAR-RV
+# ML
+scikit-learn>=1.4          # GMM, k-means, gradient boosting, MDA
+hmmlearn>=0.3              # Gaussian HMM regimes
+shap>=0.45                 # SHAP feature importance
+# Plotting / IO / config / tests
+matplotlib>=3.8
+pyyaml>=6.0
+pyarrow>=15.0              # parquet cache
+pytest>=8.0
+tqdm>=4.66                 # progress bars for permutation loops

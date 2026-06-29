@@ -1,0 +1,25 @@
+# --- Python ---
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Raw vendor market data (licensed; ~235MB) ---
+# NOT redistributed. Full provenance recorded in data/MANIFEST.csv (committed).
+data/raw/
+data/nt_csv/*.csv
+data/nt_csv/*.txt
+
+# --- Heavy derived caches (reproducible from raw + code) ---
+data/interim/
+data/processed/
+
+# --- Reports: results ARE the point, so we COMMIT them. Ignore only scratch. ---
+reports/scratch/
+reports/**/*.parquet
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp

@@ -1,0 +1,91 @@
+# =============================================================================
+# Intraday Edge-Discovery & Validation Pipeline — central configuration
+# All randomness uses these seeds; all paths and thresholds live here so a run
+# is fully reproducible and auditable. NOTHING is hard-coded in the modules.
+# =============================================================================
+
+seed: 7
+
+paths:
+  # Raw data sources (read-only; we never write here)
+  ninjatrader_db: "C:/Users/hamza/Documents/NinjaTrader 8/db"        # .ncd binary store
+  mt5_history:    "C:/Users/hamza/AppData/Roaming/MetaQuotes/Terminal/D0E8209F77C8CF37AD8BF550E51FF075/bases/Default/History"
+  # User-exported CSVs (ground truth for parser validation + reliable ingest)
+  nt_csv_export:  "data/nt_csv"          # drop NinjaTrader 'Historical Data Export' CSVs here
+  # Raw per-contract NinjaTrader exports staged inside the project (gitignored;
+  # provenance recorded in data/MANIFEST.csv). 'yyyyMMdd HHmmss;O;H;L;C;V', UTC.
+  raw:            "data/raw"
+  # Pipeline working dirs (we own these)
+  interim:        "data/interim"         # parsed parquet cache
+  processed:      "data/processed"       # continuous contracts, bars
+  reports:        "reports"              # run artifacts (tables, plots, verdicts)
+
+# -----------------------------------------------------------------------------
+# Contract specifications (CME micro index futures)
+# -----------------------------------------------------------------------------
+instruments:
+  MNQ: {multiplier: 2.0,  tick_size: 0.25, tick_value: 0.50,  exchange: CME, asset: equity_index}
+  MES: {multiplier: 5.0,  tick_size: 0.25, tick_value: 1.25,  exchange: CME, asset: equity_index}
+  # Intermarket-only (used as conditioning signals, not necessarily traded)
+  NQ:  {multiplier: 20.0, tick_size: 0.25, tick_value: 5.00,  exchange: CME, asset: equity_index}
+  ES:  {multiplier: 50.0, tick_size: 0.25, tick_value: 12.50, exchange: CME, asset: equity_index}
+  YM:  {multiplier: 5.0,  tick_size: 1.0,  tick_value: 5.00,  exchange: CBOT, asset: equity_index}
+  GC:  {multiplier: 100.0,tick_size: 0.10, tick_value: 10.00, exchange: COMEX, asset: metal}
+
+# -----------------------------------------------------------------------------
+# Timezone / sessions
+#   NinjaTrader .ncd db timestamps are stored in UTC (verified: db minute base
+#   time = 00:01:00 vs cache rendered in ET = 18:01:00). We convert UTC ->
+#   exchange (CME Central) for all analysis. CONFIRM against your CSV export.
+# -----------------------------------------------------------------------------
+timezone:
+  source_tz: "UTC"               # tz of raw .ncd db timestamps (to be CONFIRMED vs CSV)
+  exchange_tz: "America/Chicago" # CME Central; handles CST/CDT DST automatically
+rth:                              # Regular Trading Hours for index futures, Central time
+  start: "08:30"
+  end:   "15:00"
+
+# -----------------------------------------------------------------------------
+# Cost model — ALL backtests are net of these. Stress slippage at 2 ticks.
+# -----------------------------------------------------------------------------
+costs:
+  futures:
+    commission_rt_per_micro: 0.50   # $ round-trip per micro contract (parameter)
+    slippage_ticks: 1               # default 1 tick per side; stress at 2
+    slippage_ticks_stress: 2
+  fx:
+    commission_per_lot_side: 3.50   # $ per standard lot per side
+    default_spread_pips: {EURUSD: 0.2, GBPUSD: 0.5, USDCHF: 0.5, USDJPY: 0.4}
+    news_spread_multiplier: 5.0     # widen spreads/slippage in news windows (esp. XAU)
+
+# -----------------------------------------------------------------------------
+# 50K Flex eval rules. BOTH drawdown-floor mechanics implemented; FLAG to user
+# to confirm which matches the actual contract before sizing.
+# -----------------------------------------------------------------------------
+eval:
+  account_size: 50000
+  profit_target: 3000             # 6%
+  max_loss: 2000                  # 4%, measured on END-OF-DAY closing equity
+  daily_loss_limit: null          # none
+  consistency_pct: 0.50           # eval only: no single day > 50% of cumulative profit
+  max_micros: 40                  # 40 micros / 4 minis
+  drawdown_floor:
+    mechanic: "both"              # "fixed" | "trailing" | "both"
+    fixed_floor: 48000            # fixed 4% floor that never trails
+    trailing_lock_offset: 100     # trailing: floor locks at start_balance+100 once EOD reaches it
+    measured_on: "eod_close"      # intraday excursions below floor do NOT breach
+
+# -----------------------------------------------------------------------------
+# Gate thresholds (HARD — never loosened to manufacture a survivor)
+# -----------------------------------------------------------------------------
+gates:
+  min_trades: 200                 # Masters "desirable" sample; never trust < 50
+  insample_mcpt_p_max: 0.01       # REJECT unless p < 0.01
+  wf_mcpt_p_max_1yr: 0.05         # REJECT unless p < 0.05 (1yr OOS)
+  wf_mcpt_p_max_2yr: 0.01         # REJECT unless p < 0.01 (2yr+ OOS)
+  n_permutations: 1000            # >= 1000
+  pbo_max: 0.20                   # REJECT unless PBO < 0.2
+  dsr_min: 0.95                   # REJECT unless Deflated Sharpe > 0.95
+  embargo_pct: 0.01               # purged k-fold embargo (1-5%)
+  cv_folds: 6
+  max_corr_for_portfolio: 0.30    # pairwise |rho| preferred < 0.3
