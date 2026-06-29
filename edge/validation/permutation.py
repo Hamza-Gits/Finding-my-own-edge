@@ -53,26 +53,40 @@ def _decompose(log_df: pd.DataFrame, start: int):
 
 
 def _reconstruct(log_df: pd.DataFrame, start: int, gap, r_h, r_l, r_c) -> pd.DataFrame:
+    """Rebuild a log-OHLC frame from shuffled components — fully vectorized.
+
+    Each reconstructed close moves by (gap + r_c), so the close path is just a
+    cumulative sum of those increments off the anchor close; the open of bar i is
+    the previous close plus that bar's gap, and high/low hang off the open. This
+    is identical to the obvious per-bar loop but ~100x faster (the MCPT calls it
+    thousands of times), which is what makes 1,000-permutation tests on real
+    intraday data tractable.
+    """
     n = len(log_df)
     out = np.empty((n, 4))
-    c = log_df["close"].to_numpy()
+    o0 = log_df["open"].to_numpy()
+    h0 = log_df["high"].to_numpy()
+    l0 = log_df["low"].to_numpy()
+    c0 = log_df["close"].to_numpy()
     # Keep anchor bars (0..start) verbatim.
-    out[: start + 1, 0] = log_df["open"].to_numpy()[: start + 1]
-    out[: start + 1, 1] = log_df["high"].to_numpy()[: start + 1]
-    out[: start + 1, 2] = log_df["low"].to_numpy()[: start + 1]
-    out[: start + 1, 3] = c[: start + 1]
-    last_close = out[start, 3]
-    j = 0
-    for i in range(start + 1, n):
-        new_open = last_close + gap[j]
-        out[i, 0] = new_open
-        out[i, 1] = new_open + r_h[j]
-        out[i, 2] = new_open + r_l[j]
-        out[i, 3] = new_open + r_c[j]
-        last_close = out[i, 3]
-        j += 1
-    res = pd.DataFrame(np.exp(out), columns=_OHLC, index=log_df.index)
-    return res
+    out[: start + 1, 0] = o0[: start + 1]
+    out[: start + 1, 1] = h0[: start + 1]
+    out[: start + 1, 2] = l0[: start + 1]
+    out[: start + 1, 3] = c0[: start + 1]
+
+    anchor_close = c0[start]
+    cc = gap + r_c                                   # per-bar log close-to-close change
+    close_seg = anchor_close + np.cumsum(cc)         # reconstructed closes
+    prev_close = np.empty_like(close_seg)
+    prev_close[0] = anchor_close
+    prev_close[1:] = close_seg[:-1]
+    open_seg = prev_close + gap
+    out[start + 1:, 0] = open_seg
+    out[start + 1:, 1] = open_seg + r_h
+    out[start + 1:, 2] = open_seg + r_l
+    out[start + 1:, 3] = close_seg
+
+    return pd.DataFrame(np.exp(out), columns=_OHLC, index=log_df.index)
 
 
 def permute_ohlc(df: pd.DataFrame, start_index: int = 0,

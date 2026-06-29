@@ -23,6 +23,22 @@ verifiable change — no aspirational claims.
   futures-first; ES/NQ intermarket and tick microstructure flagged as honest gaps).
 - Repo initialized and connected to GitHub (`Hamza-Gits/Finding-my-own-edge`).
 
+### M2 gate machinery complete
+- `edge/validation/walkforward.py` — anchored/rolling walk-forward (warm-up via train
+  tail, no leakage) + **walk-forward MCPT** (keep first train real, permute the rest,
+  re-run the whole WF per permutation; p-gate 0.05/0.01).
+- `edge/stats/cv.py` — purged k-fold + embargo and **CPCV** (C(N,k) partitions → an OOS
+  metric *distribution*, not one lucky split).
+- `edge/stats/pbo.py` — **PBO via CSCV** (Bailey et al.); fraction of splits where the
+  IS-best variant lands in the bottom half OOS. Gate < 0.20.
+- `edge/validation/bootstrap.py` — **stationary block bootstrap** cross-check (preserves
+  serial dependence the permutation destroys); survivors must agree across both.
+- **Vectorized the bar-permutation reconstruction** (was a Python loop): 50k-bar permute
+  now 36 ms; the WF-MCPT test that took 11 min now runs in seconds. This is what makes
+  1,000-permutation tests on real intraday data tractable.
+- New gate self-tests pass: all four show power on a planted edge and correct size on
+  noise. **34 tests passing.**
+
 ### Previously (M0 + M2 core, pre-changelog)
 - Environment + package scaffold (`edge/`), pinned quant stack (pandas 2.2.3 to dodge a
   Windows tz `date_range` segfault), central `config/config.yaml`.
