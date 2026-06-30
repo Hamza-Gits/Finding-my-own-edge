@@ -3,6 +3,27 @@
 Running log of the edge-discovery pipeline. Newest first. Every entry is a real,
 verifiable change — no aspirational claims.
 
+## 2026-06-30
+
+### H1 Compression-Gated ORB — fully gated, honest NO-GO (+ new per-year leg gate)
+- Ran H1 (compression-gated opening-range breakout) through the **full** gate stack on real MNQ
+  (`scripts/04_compression_orb.py`, 500 IS perms). Mechanism: arm the breakout only after a quiet
+  overnight; direction chosen intraday so it is structurally symmetric (not bull beta).
+- **Passed** IS-MCPT (p=0.0040, only 1/500 perms beat it), 1,350 trades, ann Sharpe 1.16/1.09
+  (1-/2-tick). **Failed** WF-MCPT (p=0.192) and PBO (0.44) → classic overfit signature: great
+  in-sample, parameters do not transfer out-of-sample. **Honest NO-GO.**
+- **Adversarial code audit (16-agent workflow):** 5 independent skeptics traced the arming and
+  intraday logic on the real ns-resolution data and found **no lookahead/leak** — so the 1.1 Sharpe
+  is real, and the OOS failure is genuine overfitting, not a bug. (One non-blocking robustness note:
+  the `comp_map` key would mismatch under a future pandas-3 µs-resolution index — harden later.)
+- **New honesty gate:** `edge/validation/leg_gate.py` — per-year long/short leg decomposition,
+  replacing the too-weak pooled `min(pnl_long, pnl_short) > 0`. On H1 it **FAILS** where the pooled
+  check passed: the short leg books **71% of its P&L in 2022** alone and is negative in 3/8 years;
+  dropping 2022 collapses net Sharpe 1.09 → 0.79. `scripts/04b_h1_leg_decomposition.py` reproduces it.
+- This gate is now applied **before** the expensive full-gate stack for every symmetric candidate.
+- Next: **H4 — overnight-inventory gap-fade** (sign-symmetric, abundant sample, flat overnight),
+  with mandatory roll-gap handling and the per-year leg gate. See `reports/04_hypotheses.md`.
+
 ## 2026-06-29
 
 ### M3 first discovery run — 6 candidates, honest NO-GO (gates working)
